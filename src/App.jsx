@@ -1,10 +1,5 @@
 import "./App.css";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import ScrollToTop from "./components/layouts/ScrollTop";
-
-// Vistas
-import Home from "./views/home/Home";
-
 // Layout
 import {
   Navbar,
@@ -16,6 +11,8 @@ import { Footer } from "./components/layouts/Footer";
 // Datos centralizados
 import { PRODUCTS } from "./data/products";
 import ProductsPage from "./views/produtcs/Productspage";
+import Home from "./views/home/Home";
+import ScrollToTop from "./components/layouts/ScrollTop";
 
 export default function App() {
   return (
