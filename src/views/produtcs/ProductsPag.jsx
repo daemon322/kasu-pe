@@ -438,7 +438,7 @@ function ProductListItem({ product, onOpenDetail }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // PRODUCTS PAGE
 // ─────────────────────────────────────────────────────────────────────────────
-export default function ProductsPage() {
+export default function ProductsPag() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [query, setQuery] = useState(searchParams.get("q") || "");
