@@ -96,24 +96,50 @@ export function SearchBox({ onClose, autoFocus = false }) {
   const [focused, setFocused] = useState(false);
 
   useEffect(() => {
-    if (autoFocus) setTimeout(() => inputRef.current?.focus(), 50);
+    if (autoFocus) setTimeout(() => inputRef.current?.focus(), 80);
   }, [autoFocus]);
 
+  // Cierre al tocar/click FUERA del componente.
+  // Usamos mousedown (desktop) y touchstart (mobile).
+  // Los items del dropdown usan onTouchEnd con stopPropagation para
+  // que su tap NO llegue a este listener y no cierre el dropdown antes de navegar.
   useEffect(() => {
-    const fn = (e) => {
-      if (containerRef.current && !containerRef.current.contains(e.target)) setIsOpen(false);
+    const close = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+        setFocused(false);
+      }
     };
-    document.addEventListener("mousedown", fn);
-    return () => document.removeEventListener("mousedown", fn);
-  }, []);
+    document.addEventListener("mousedown",  close);
+    document.addEventListener("touchstart", close, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown",  close);
+      document.removeEventListener("touchstart", close);
+    };
+  }, [setIsOpen]);
 
-  const go = (url) => { clear(); onClose?.(); navigate(url); };
+  const go = (url) => { clear(); setFocused(false); onClose?.(); navigate(url); };
 
   // Seleccionar un producto específico → vista propia del producto
-  const handleSelect = (product) => go(`/producto/${product.id}`);
+  // handleTouch: captura el tap en mobile ANTES de que el documento cierre el dropdown
+  const handleSelect    = (product) => go(`/producto/${product.id}`);
+  const handleTouchSelect = (e, product) => {
+    e.preventDefault();   // evita el click sintético posterior
+    e.stopPropagation();  // evita que el touchend llegue al documento y cierre el dropdown
+    go(`/producto/${product.id}`);
+  };
 
-  // Enter o "Ver todos" → búsqueda general con texto (muestra el grid filtrado)
   const handleViewAll = () => { if (query.trim()) go(`/productos?q=${encodeURIComponent(query.trim())}`); };
+  const handleTouchViewAll = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (query.trim()) go(`/productos?q=${encodeURIComponent(query.trim())}`);
+  };
+  const handleTouchCat = (e, cat) => {
+    e.preventDefault();
+    e.stopPropagation();
+    go(`/productos?categoria=${encodeURIComponent(cat)}`);
+  };
 
   return (
     <div ref={containerRef} className="relative w-full">
@@ -130,14 +156,18 @@ export function SearchBox({ onClose, autoFocus = false }) {
           value={query}
           onChange={e => { setQuery(e.target.value); setIsOpen(true); }}
           onFocus={() => { setFocused(true); if (results.length > 0) setIsOpen(true); }}
-          onBlur={() => setFocused(false)}
+          // SIN onBlur → el dropdown no se cierra cuando el usuario toca un resultado
           onKeyDown={e => e.key === "Enter" && handleViewAll()}
           placeholder="Buscar productos..."
           className="flex-1 bg-transparent text-sm text-white placeholder-slate-500 outline-none min-w-0"
         />
         {query
-          ? <button onClick={clear} className="text-slate-500 hover:text-white transition-colors text-xl leading-none flex-shrink-0">×</button>
-          : <kbd className="hidden sm:block text-slate-600 text-[10px] border border-slate-700 px-1.5 py-0.5 rounded font-mono flex-shrink-0">Enter</kbd>
+          ? <button
+              // onMouseDown en vez de onClick para que no robe foco en desktop
+              onMouseDown={e => { e.preventDefault(); clear(); }}
+              className="text-slate-500 hover:text-white transition-colors text-xl leading-none flex-shrink-0">×
+            </button>
+          : <kbd className="hidden sm:block text-slate-600 text-[10px] border border-slate-700 px-1.5 py-0.5 rounded font-mono flex-shrink-0">↵</kbd>
         }
       </div>
 
@@ -148,12 +178,17 @@ export function SearchBox({ onClose, autoFocus = false }) {
 
           {results.length > 0 ? (
             <>
-              {/* Productos */}
+              {/* Lista de productos */}
               <div className="p-2">
                 <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest px-2 py-1.5">Productos</p>
-                {results.slice(0, 4).map(product => (
-                  <button key={product.id} onClick={() => handleSelect(product)}
-                    className="w-full flex items-center gap-3 px-2 py-2.5 hover:bg-slate-800 rounded-xl transition-colors text-left group">
+                {results.slice(0, 5).map(product => (
+                  <button
+                    key={product.id}
+                    onMouseDown={e => e.preventDefault()}
+                    onTouchEnd={e => handleTouchSelect(e, product)}
+                    onClick={() => handleSelect(product)}
+                    className="w-full flex items-center gap-3 px-2 py-2.5 hover:bg-slate-800 active:bg-slate-700 rounded-xl transition-colors text-left group"
+                  >
                     <span className="text-xl w-7 text-center flex-shrink-0">{product.emoji}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-white truncate leading-tight">
@@ -163,7 +198,7 @@ export function SearchBox({ onClose, autoFocus = false }) {
                     </div>
                     <div className="text-right flex-shrink-0">
                       <p className="text-amber-400 font-black text-sm">S/.{product.price}</p>
-                      <p className="text-green-400 text-xs">-{Math.round((1 - product.price / product.oldPrice) * 100)}%</p>
+                      <p className="text-emerald-400 text-xs font-bold">-{Math.round((1 - product.price / product.oldPrice) * 100)}%</p>
                     </div>
                   </button>
                 ))}
@@ -180,8 +215,10 @@ export function SearchBox({ onClose, autoFocus = false }) {
                     .slice(0, 2)
                     .map(cat => (
                       <button key={cat}
+                        onMouseDown={e => e.preventDefault()}
+                        onTouchEnd={e => handleTouchCat(e, cat)}
                         onClick={() => go(`/productos?categoria=${encodeURIComponent(cat)}`)}
-                        className="w-full flex items-center gap-3 px-2 py-2 hover:bg-slate-800 rounded-xl transition-colors text-left">
+                        className="w-full flex items-center gap-3 px-2 py-2 hover:bg-slate-800 active:bg-slate-700 rounded-xl transition-colors text-left">
                         <span className="text-base w-7 text-center">📦</span>
                         <span className="text-sm font-bold text-slate-300">
                           Ver: <span className="text-amber-400">{cat}</span>
@@ -195,8 +232,11 @@ export function SearchBox({ onClose, autoFocus = false }) {
               )}
 
               {/* Ver todos */}
-              <button onClick={handleViewAll}
-                className="w-full flex items-center justify-between px-4 py-3 border-t border-slate-800 bg-slate-800/50 hover:bg-slate-800 transition-colors">
+              <button
+                onMouseDown={e => e.preventDefault()}
+                onTouchEnd={handleTouchViewAll}
+                onClick={handleViewAll}
+                className="w-full flex items-center justify-between px-4 py-3 border-t border-slate-800 bg-slate-800/50 hover:bg-slate-800 active:bg-slate-700 transition-colors">
                 <span className="text-sm text-slate-300">
                   Ver todos para <span className="text-amber-400 font-bold">"{query}"</span>
                 </span>
@@ -208,9 +248,12 @@ export function SearchBox({ onClose, autoFocus = false }) {
           ) : (
             <div className="px-4 py-6 text-center">
               <p className="text-2xl mb-1">🔍</p>
-              <p className="text-sm font-bold text-white">Sin resultados para "{query}"</p>
-              <button onClick={() => go("/productos")}
-                className="mt-2 text-xs text-amber-400 hover:text-amber-300 font-bold underline transition-colors">
+              <p className="text-sm font-bold text-white mb-1">Sin resultados para "{query}"</p>
+              <button
+                onMouseDown={e => e.preventDefault()}
+                onTouchEnd={e => { e.preventDefault(); e.stopPropagation(); go("/productos"); }}
+                onClick={() => go("/productos")}
+                className="mt-1 text-xs text-amber-400 hover:text-amber-300 font-bold underline transition-colors">
                 Ver todos los productos →
               </button>
             </div>
@@ -383,9 +426,19 @@ function MobileDrawer({ open, onClose, isHome, activeLink, onNavClick }) {
             className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-all text-xl">✕</button>
         </div>
 
-        {/* Buscador dentro del drawer */}
+        {/* Buscador dentro del drawer → navega a /buscar (sin dropdown problemático) */}
         <div className="px-4 py-3 border-b border-slate-800 flex-shrink-0">
-          <SearchBox onClose={onClose} autoFocus />
+          <Link
+            to="/buscar"
+            onClick={onClose}
+            className="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 transition-all hover:border-amber-500/50 w-full"
+          >
+            <svg className="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <span className="text-sm text-slate-500 flex-1">Buscar productos...</span>
+            <kbd className="text-slate-600 text-[10px] border border-slate-700 px-1.5 py-0.5 rounded font-mono">🔍</kbd>
+          </Link>
         </div>
 
         {/* Links de navegación */}
@@ -450,8 +503,6 @@ export function Navbar() {
   const [activeLink,  setActiveLink]  = useState("");
   const [prevCount,   setPrevCount]   = useState(0);
   const [cartBounce,  setCartBounce]  = useState(false);
-  // Buscador expandible en mobile (icono lupa en la barra)
-  const [searchOpen,  setSearchOpen]  = useState(false);
   const { clear } = useSearch();
 
   // Scroll
@@ -463,7 +514,7 @@ export function Navbar() {
 
   // Cerrar drawer en resize a desktop
   useEffect(() => {
-    const fn = () => { if (window.innerWidth >= 768) { setDrawerOpen(false); setSearchOpen(false); } };
+    const fn = () => { if (window.innerWidth >= 768) { setDrawerOpen(false); } };
     window.addEventListener("resize", fn);
     return () => window.removeEventListener("resize", fn);
   }, []);
@@ -555,7 +606,7 @@ export function Navbar() {
             <span className="text-xl sm:text-2xl group-hover:rotate-12 transition-transform duration-300 inline-block">✏️</span>
             <div className="leading-none">
               <div className="nb-bebas text-lg sm:text-2xl text-amber-400 tracking-widest group-hover:text-amber-300 transition-colors leading-none">
-                ESCOLARTE
+                KASURY.PE
               </div>
               <div className="hidden sm:block text-slate-500 text-[10px] font-semibold leading-none mt-0.5">
                 Útiles Escolares Premium
@@ -596,24 +647,15 @@ export function Navbar() {
             <SearchBox />
           </div>
 
-          {/* WhatsApp — solo xl */}
-          <a href="https://wa.me/51999999999" target="_blank" rel="noreferrer"
-            className="hidden xl:flex items-center gap-1.5 bg-green-600 hover:bg-green-500 active:bg-green-700 text-white font-bold px-3 py-2 rounded-xl text-sm transition-all whitespace-nowrap flex-shrink-0">
-            💬 <span>WhatsApp</span>
-          </a>
-
-          {/* Lupa mobile (abre barra de búsqueda expandida) */}
+          {/* Lupa mobile → navega a /buscar (página fullscreen sin dropdown) */}
           <button
-            onClick={() => setSearchOpen(!searchOpen)}
+            onClick={() => navigate("/buscar")}
             aria-label="Buscar"
-            className={`md:hidden w-10 h-10 flex items-center justify-center rounded-xl transition-all flex-shrink-0
-              ${searchOpen ? "bg-amber-500/20 text-amber-400" : "text-slate-400 hover:bg-slate-800 hover:text-white"}`}>
-            {searchOpen
-              ? <span className="text-lg font-black">×</span>
-              : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                </svg>
-            }
+            className="md:hidden w-10 h-10 flex items-center justify-center rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all flex-shrink-0"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
           </button>
 
           {/* Carrito */}
@@ -636,12 +678,6 @@ export function Navbar() {
           </button>
         </div>
 
-        {/* ──── BARRA DE BÚSQUEDA MOBILE (expandible) ───────── */}
-        {searchOpen && (
-          <div className="nb-search md:hidden border-t border-slate-800 bg-slate-900 px-3 py-3">
-            <SearchBox onClose={() => setSearchOpen(false)} autoFocus />
-          </div>
-        )}
       </nav>
 
       {/* ── DRAWERS ──────────────────────────────────────────── */}

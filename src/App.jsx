@@ -7,6 +7,7 @@ import { CartProvider, Navbar, SearchProvider } from "./components/layouts/Navba
 import { PRODUCTS } from "./data/products";
 import ScrollToTop from "./components/layouts/ScrollTop";
 import { Footer } from "./components/layouts/Footer";
+import SearchPage from "./views/search/SearchPage";
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
             <Route path="/" element={<Home />} />
             <Route path="/productos" element={<ProductsPage />} />
             <Route path="/producto/:id" element={<ProductPage />} />
+            <Route path="/buscar" element={<SearchPage />} />
           </Routes>
           <Footer />
         </Router>
