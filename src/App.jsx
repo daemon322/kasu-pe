@@ -1,13 +1,12 @@
 import "./App.css";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-// Datos centralizados
 import Home from "./views/home/Home";
-import ScrollToTop from "./components/layouts/ScrollTop";
-import ProductsPag from "./views/produtcs/ProductsPag";
-import { PRODUCTS } from "./data/products";
+import ProductsPage from "./views/produtcs/ProductsPage";
+import ProductPage from "./views/produtcs/ProductPage";
 import { CartProvider, Navbar, SearchProvider } from "./components/layouts/Navbar";
+import { PRODUCTS } from "./data/products";
+import ScrollToTop from "./components/layouts/ScrollTop";
 import { Footer } from "./components/layouts/Footer";
-
 
 export default function App() {
   return (
@@ -18,7 +17,8 @@ export default function App() {
           <Navbar />
           <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/productos" element={<ProductsPag />} />
+            <Route path="/productos" element={<ProductsPage />} />
+            <Route path="/producto/:id" element={<ProductPage />} />
           </Routes>
           <Footer />
         </Router>
